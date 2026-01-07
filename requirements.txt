@@ -1,0 +1,18 @@
+# Discord Music Bot 依賴套件
+
+# Discord.py - Discord API 封裝
+discord.py>=2.3.0
+
+# Wavelink - Lavalink 客戶端（用於音樂播放）
+wavelink>=3.4.0
+
+# python-dotenv - 環境變數管理
+python-dotenv>=1.0.0
+
+# PyNaCl - 語音支援（Discord.py 語音功能需要）
+PyNaCl>=1.5.0
+
+# 注意：
+# 1. 需要運行 Lavalink 伺服器才能播放音樂
+# 2. 下載 Lavalink: https://github.com/lavalink-devs/Lavalink/releases
+# 3. Java 17+ 是運行 Lavalink 的必要條件

@@ -1,0 +1,113 @@
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    # 暫時禁用 YouTube Plugin，改用 LavaSrc 的 yt-dlp 後端
+    # - dependency: "dev.lavalink.youtube:youtube-plugin:1.16.0"
+    #   snapshot: false
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.1"
+      repository: "https://maven.lavalink.dev/releases"
+      snapshot: false
+  server:
+    password: "youshallnotpass"
+    sources:
+      youtube: false  # 禁用內建 YouTube 源，使用插件
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: true
+      rotation: true
+      channelMix: true
+      lowPass: true
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+    gc-warnings: true
+
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    clients:
+      - ANDROID_MUSIC
+      - MUSIC
+      - WEB
+      - TVHTML5EMBEDDED
+    # poToken 配置（用於繞過 YouTube "Please sign in" 錯誤）
+    # 獲取方法：參考 LAVALINK_SETUP.md 的「獲取 poToken」章節
+    # pot:
+    #   token: "PASTE_YOUR_PO_TOKEN_HERE"        # 從 YouTube Music 開發者工具提取
+    #   visitorData: "PASTE_YOUR_VISITOR_DATA_HERE"  # 從 ytcfg.get('VISITOR_DATA') 獲取
+    # OAuth2 配置（替代方案，不建議使用）
+    # oauth:
+    #   enabled: true
+    #   skipInitialization: false
+
+  # LavaSrc 插件配置 - 使用 yt-dlp 作為 YouTube 後端（永久方案，自動繞過限制）
+  lavasrc:
+    # providers 需要 YouTube Plugin，所以註解掉
+    # providers:
+    #   - "ytmsearch:\"%ISRC%\""  # YouTube Music 搜尋
+    #   - "ytsearch:\"%ISRC%\""   # YouTube 搜尋
+    sources:
+      # 禁用 LavaSrc 的內建 YouTube 源，我們只使用 yt-dlp
+      youtube: false
+      # 啟用 yt-dlp 源
+      ytdlp: true
+    ytdlp:
+      enabled: true  # 啟用 yt-dlp 後端
+      path: "yt-dlp"  # yt-dlp 執行檔路徑
+      searchLimit: 10  # 搜尋結果數量限制
+      # yt-dlp 會自動處理 YouTube 的反爬蟲機制，無需手動配置 token
+      # 這是零維護的永久解決方案
+
+metrics:
+  prometheus:
+    enabled: false
+    endpoint: /metrics
+
+sentry:
+  dsn: ""
+  environment: ""
+
+logging:
+  file:
+    path: ./logs/
+
+  level:
+    root: INFO
+    lavalink: INFO
+
+  request:
+    enabled: true
+    includeClientInfo: true
+    includeHeaders: false
+    includeQueryString: true
+    includePayload: true
+    maxPayloadLength: 10000
+
+  logback:
+    rollingpolicy:
+      max-file-size: 25MB
+      max-history: 30
