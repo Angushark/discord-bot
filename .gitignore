@@ -35,3 +35,10 @@ yt-dlp-*
 lavalink/*.jar
 lavalink/plugins/*.jar
 lavalink/logs/
+
+# Runtime generated files
+bot_status.json
+
+# Temporary files
+NUL
+=0.47.0

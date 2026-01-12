@@ -1,10 +1,421 @@
 # Discord 音樂機器人開發日誌
 
 ## 最新更新日期
-2026-01-07
+2026-01-12
 
 ## 最新版本
-**v2.1.1** - 修復 Skip 邏輯錯誤（重要錯誤修復）
+**v2.2.0** - 新增 GUI 監控界面
+
+---
+
+## 🖥️ 第十階段：GUI 監控界面實現 (2026-01-12)
+
+### 更新說明
+
+用戶要求添加一個本地 GUI 界面，用於實時監控機器人狀態和日誌。基於需求分析（本地管理 + 實時監控 + 日誌查看），選擇使用 **Textual** 框架實現美觀的終端 UI。
+
+### v2.2.0 - GUI 監控界面
+
+**新增內容：**
+
+#### 1. ✨ 新增文件
+
+**dashboard.py** - 主要 GUI 應用
+- **位置**：[dashboard.py](dashboard.py)
+- **框架**：Textual 0.47.0+
+- **功能**：實時監控界面，包含四大區塊
+
+**GUI_GUIDE.md** - 完整使用指南
+- **位置**：[GUI_GUIDE.md](GUI_GUIDE.md)
+- **內容**：功能說明、快捷鍵、故障排除、使用技巧
+
+**start_dashboard.bat** - Windows 啟動腳本
+- **位置**：[start_dashboard.bat](start_dashboard.bat)
+- **用途**：一鍵啟動 GUI，顯示快捷鍵提示
+
+#### 2. 📊 GUI 功能模塊
+
+**BotStatusWidget（機器人狀態）**
+```python
+class BotStatusWidget(Static):
+    bot_online = reactive(False)          # 機器人在線狀態
+    lavalink_online = reactive(False)     # Lavalink 連接狀態
+    guild_count = reactive(0)             # 伺服器數量
+    voice_connections = reactive(0)       # 語音連接數
+```
+
+**功能**：
+- 實時顯示機器人是否在線（✅/❌）
+- 顯示 Lavalink 伺服器連接狀態
+- 統計連接的伺服器數和語音頻道數
+
+**NowPlayingWidget（當前播放）**
+```python
+class NowPlayingWidget(Static):
+    song_title = reactive("無")           # 歌曲名稱
+    requester = reactive("無")            # 請求者
+    mode = reactive("🔁 歌單循環")        # 播放模式
+    volume = reactive(100)                # 音量
+    playing_status = reactive("⏹️ 已停止") # 播放狀態
+```
+
+**功能**：
+- 顯示當前播放的歌曲資訊
+- 顯示播放模式（🔁 歌單循環 / 🔂 單曲重複）
+- 顯示音量和播放狀態（▶️ 播放中 / ⏸️ 已暫停 / ⏹️ 已停止）
+
+**QueueWidget（播放佇列）**
+```python
+class QueueWidget(Static):
+    queue_items = reactive([])            # 佇列歌曲列表
+```
+
+**功能**：
+- 顯示前 10 首等待播放的歌曲
+- 格式：`歌曲名稱 - 請求者`
+- 超過 10 首顯示「還有 X 首歌曲」
+
+**Log Widget（實時日誌）**
+- 使用 Textual 的 `Log` 組件
+- 自動追蹤 `logs/music_bot.log` 文件
+- 顏色區分日誌級別：
+  - 🟢 綠色 = INFO
+  - 🟡 黃色 = WARNING
+  - 🔴 紅色 = ERROR
+
+#### 3. 🔄 數據同步機制
+
+**機器人端狀態導出**
+
+新增 `export_status_loop()` 函數：
+- **位置**：[main_onlymusic.py:428-491](main_onlymusic.py#L428-L491)
+- **觸發**：在 `on_ready()` 事件中啟動
+- **頻率**：每 2 秒更新一次
+- **輸出**：`bot_status.json` 文件
+
+**導出數據結構**：
+```json
+{
+  "bot_online": true,
+  "lavalink_online": true,
+  "guild_count": 3,
+  "voice_connections": 1,
+  "current_playing": {
+    "title": "歌曲名稱",
+    "requester": "用戶名",
+    "mode": "🔁 歌單循環",
+    "volume": 100,
+    "status": "▶️ 播放中"
+  },
+  "queue": [
+    "歌曲A - 用戶A",
+    "歌曲B - 用戶B"
+  ]
+}
+```
+
+**GUI 端數據讀取**
+
+`update_data()` 異步任務：
+- **位置**：[dashboard.py:113-149](dashboard.py#L113-L149)
+- **頻率**：每 2 秒讀取一次 `bot_status.json`
+- **處理**：解析 JSON 並更新各個 Widget 的 reactive 屬性
+
+`tail_log()` 異步任務：
+- **位置**：[dashboard.py:151-182](dashboard.py#L151-L182)
+- **功能**：實時追蹤日誌文件，類似 `tail -f` 命令
+- **顏色**：根據日誌內容自動添加顏色標記
+
+#### 4. ⌨️ 快捷鍵控制
+
+**定義快捷鍵**：
+```python
+BINDINGS = [
+    ("q", "quit", "退出"),
+    ("r", "refresh", "刷新"),
+    ("l", "clear_log", "清除日誌"),
+    ("s", "save_log", "保存日誌"),
+]
+```
+
+**功能實現**：
+
+**Q - 退出**
+- Textual 內建功能
+- 優雅關閉 GUI，停止所有異步任務
+
+**R - 手動刷新**
+- 立即觸發數據更新
+- 在日誌中記錄刷新時間
+
+**L - 清除日誌**
+- 清空日誌顯示區域
+- 在日誌中記錄清除時間
+
+**S - 保存日誌**
+```python
+def action_save_log(self) -> None:
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    save_path = Path(f"logs/dashboard_log_{timestamp}.txt")
+    # 保存當前顯示的所有日誌到文件
+```
+
+#### 5. 🎨 界面設計
+
+**CSS 樣式**：
+```css
+#main-container {
+    layout: vertical;
+    height: 100%;
+}
+
+#top-section {
+    layout: horizontal;
+    height: 50%;
+}
+
+#left-panel, #right-panel {
+    width: 50%;
+    padding: 1;
+}
+
+#log-section {
+    height: 50%;
+    padding: 1;
+}
+```
+
+**布局結構**：
+```
+┌─────────────────────────────────────┐
+│  Header (標題欄)                    │
+├─────────────────┬───────────────────┤
+│  Left Panel     │  Right Panel      │
+│  - Bot Status   │  - Queue Widget   │
+│  - Now Playing  │                   │
+│  (50% 寬度)      │  (50% 寬度)        │
+├─────────────────┴───────────────────┤
+│  Log Section (日誌區域)             │
+│  (50% 高度)                         │
+├─────────────────────────────────────┤
+│  Footer (快捷鍵提示)                │
+└─────────────────────────────────────┘
+```
+
+#### 6. 📝 文檔更新
+
+**requirements.txt**
+- **位置**：[requirements.txt:15-16](requirements.txt#L15-L16)
+- **新增**：`textual>=0.47.0`
+
+**README.md**
+- **新增章節**：「🖥️ GUI 監控界面」
+- **位置**：[README.md:171-193](README.md#L171-L193)
+- **內容**：功能特性、啟動方法、完整指南連結
+
+**CLAUDE.md**
+- **新增階段**：「第十階段：GUI 監控界面實現」
+- **記錄**：完整的開發過程和技術細節
+
+### 技術特點
+
+#### 1. 響應式設計（Reactive）
+
+使用 Textual 的 reactive 屬性實現自動更新：
+```python
+song_title = reactive("無")  # 當值改變時自動重新渲染
+
+# 修改值會自動觸發 UI 更新
+self.now_playing_widget.song_title = "新歌曲"
+```
+
+#### 2. 異步任務（Async Workers）
+
+使用 `@work` 裝飾器創建背景任務：
+```python
+@work(exclusive=True)
+async def update_data(self) -> None:
+    while True:
+        # 持續更新數據
+        await asyncio.sleep(2)
+```
+
+**exclusive=True** 確保同一時間只有一個任務實例運行。
+
+#### 3. 檔案監控（File Tailing）
+
+實時追蹤日誌文件的實現：
+```python
+with open(self.log_file, 'r', encoding='utf-8') as f:
+    f.seek(0, 2)  # 移動到文件末尾
+    while True:
+        line = f.readline()
+        if line:
+            self._write_log_line(line.strip())
+        else:
+            await asyncio.sleep(0.5)  # 等待新行
+```
+
+#### 4. 錯誤容錯
+
+所有異步任務都包含錯誤處理：
+```python
+try:
+    # 數據處理邏輯
+except Exception as e:
+    logger.debug(f"狀態導出錯誤: {e}")
+    # 繼續運行，不中斷程序
+```
+
+### 優勢分析
+
+#### 相比 Web Dashboard 的優勢：
+
+1. **更輕量** - 不需要 Web 服務器和瀏覽器
+2. **更快速** - 終端渲染比網頁加載更快
+3. **更簡單** - 無需處理 HTTP 請求、WebSocket 等
+4. **更適合本地** - 符合用戶「本地管理」的需求
+
+#### 相比傳統桌面 GUI 的優勢：
+
+1. **跨平台** - 任何終端都能運行（Windows/Linux/macOS）
+2. **遠程友好** - 支持 SSH 遠程監控
+3. **美觀現代** - Textual 提供豐富的 UI 組件和顏色支持
+4. **開發快速** - 比 Tkinter/PyQt 更簡單
+
+### 使用流程
+
+#### 完整啟動步驟：
+
+1. **終端 1 - Lavalink**
+   ```bash
+   cd lavalink
+   java -jar Lavalink.jar
+   ```
+
+2. **終端 2 - Discord 機器人**
+   ```bash
+   python main_onlymusic.py
+   ```
+   - 等待看到「✓ 狀態導出任務已啟動」
+
+3. **終端 3 - GUI 控制台**
+   ```bash
+   # Windows
+   start_dashboard.bat
+
+   # Linux/macOS
+   python dashboard.py
+   ```
+
+#### GUI 操作：
+
+- 啟動後自動開始監控
+- 數據每 2 秒自動刷新
+- 日誌實時滾動顯示
+- 使用快捷鍵控制：
+  - `Q` - 退出
+  - `R` - 手動刷新
+  - `L` - 清除日誌
+  - `S` - 保存日誌到文件
+
+### 測試建議
+
+#### 基本功能測試
+- [ ] 啟動 GUI，確認界面正確顯示
+- [ ] 啟動機器人，確認「機器人狀態」區塊變為 ✅ 在線
+- [ ] Lavalink 連接成功後，確認狀態更新為 ✅ 已連接
+- [ ] 確認伺服器數和語音連接數正確顯示
+
+#### 播放功能測試
+- [ ] 使用 `$play` 播放歌曲
+- [ ] 確認「當前播放」區塊顯示歌曲資訊
+- [ ] 確認播放狀態顯示為 ▶️ 播放中
+- [ ] 添加多首歌曲，確認「播放佇列」正確顯示
+
+#### 日誌功能測試
+- [ ] 確認日誌實時顯示在底部區域
+- [ ] 確認 INFO 日誌顯示為綠色
+- [ ] 確認 ERROR 日誌顯示為紅色（可嘗試播放無效 URL）
+- [ ] 測試 `L` 鍵清除日誌
+- [ ] 測試 `S` 鍵保存日誌，確認文件創建
+
+#### 快捷鍵測試
+- [ ] 按 `R` 鍵手動刷新，確認日誌顯示刷新訊息
+- [ ] 按 `L` 鍵清除日誌，確認日誌區域清空
+- [ ] 按 `S` 鍵保存日誌，確認文件存在
+- [ ] 按 `Q` 鍵退出，確認優雅關閉
+
+#### 邊界情況測試
+- [ ] 機器人未啟動時啟動 GUI，確認狀態顯示 ❌ 離線
+- [ ] 機器人運行中停止，確認 GUI 狀態更新
+- [ ] 日誌文件不存在時啟動 GUI，確認顯示等待訊息
+- [ ] 長時間運行，確認記憶體和 CPU 占用穩定
+
+### 相關文件
+
+| 文件 | 說明 |
+|------|------|
+| [dashboard.py](dashboard.py) | GUI 主程序 |
+| [GUI_GUIDE.md](GUI_GUIDE.md) | 完整使用指南 |
+| [start_dashboard.bat](start_dashboard.bat) | Windows 啟動腳本 |
+| [main_onlymusic.py:428-491](main_onlymusic.py#L428-L491) | 狀態導出函數 |
+| [main_onlymusic.py:1-11](main_onlymusic.py#L1-L11) | 新增 json 導入 |
+| [requirements.txt:15-16](requirements.txt#L15-L16) | Textual 依賴 |
+| [README.md:171-193](README.md#L171-L193) | README GUI 章節 |
+
+### 技術債務與改進建議
+
+#### 當前限制：
+
+1. **單伺服器支持**
+   - 目前只顯示第一個語音連接的資訊
+   - 如果機器人連接多個伺服器，只能看到一個
+
+2. **無播放控制**
+   - GUI 只提供監控，不能控制播放
+   - 未來可考慮添加播放/暫停/跳過按鈕
+
+3. **固定更新頻率**
+   - 硬編碼為 2 秒，無法調整
+   - 未來可添加設定選項
+
+#### 未來改進方向：
+
+1. **多伺服器切換**
+   - 添加標籤頁或下拉選單
+   - 可在不同伺服器間切換查看
+
+2. **播放控制功能**
+   - 添加控制按鈕（播放/暫停/跳過）
+   - 通過 RPC 或命令文件與機器人通信
+
+3. **統計圖表**
+   - 添加播放次數統計
+   - 歌曲熱度排行榜
+   - CPU/記憶體使用圖表
+
+4. **自定義主題**
+   - 支持切換顏色主題
+   - 暗色/亮色模式
+
+5. **配置檔案**
+   - 支持自定義更新頻率
+   - 自定義日誌顯示行數
+   - 自定義快捷鍵
+
+### 總結
+
+本次更新成功添加了一個**美觀、實用、輕量**的 GUI 監控界面：
+
+- ✅ 滿足用戶需求（本地管理 + 實時監控 + 日誌查看）
+- ✅ 使用現代終端 UI 框架（Textual）
+- ✅ 實時數據同步（2 秒刷新）
+- ✅ 完整的文檔和啟動腳本
+- ✅ 跨平台支持（Windows/Linux/macOS）
+- ✅ 低資源占用，可長時間運行
+
+GUI 為用戶提供了一個直觀的方式來監控機器人狀態，大大提升了使用體驗和調試效率。
 
 ---
 

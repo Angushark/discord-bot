@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+import json
 
 # 載入環境變數
 load_dotenv()
@@ -424,6 +425,71 @@ async def play_next(guild_id):
         await update_control_panel(ctx, embed, disable_buttons=True)
         logger.info(f"[{ctx.guild.name}] 播放佇列已結束，控制面板已禁用")
 
+async def export_status_loop():
+    """
+    定期導出機器人狀態到 JSON 文件，供 GUI 讀取
+    每 2 秒更新一次狀態
+    """
+    await bot.wait_until_ready()
+    logger.info("✓ 狀態導出任務已啟動")
+
+    while not bot.is_closed():
+        try:
+            # 收集機器人狀態
+            status_data = {
+                'bot_online': bot.is_ready(),
+                'lavalink_online': len(wavelink.Pool.nodes) > 0,
+                'guild_count': len(bot.guilds),
+                'voice_connections': len(bot.voice_clients),
+                'current_playing': {},
+                'queue': []
+            }
+
+            # 如果有語音連接，收集播放資訊（使用第一個連接）
+            if bot.voice_clients:
+                voice_client = bot.voice_clients[0]
+                guild_id = voice_client.guild.id
+                player: wavelink.Player = voice_client
+
+                # 當前播放資訊
+                current_song = get_current_song(guild_id)
+                if current_song:
+                    # 播放狀態
+                    if player.paused:
+                        status = "⏸️ 已暫停"
+                    elif player.playing:
+                        status = "▶️ 播放中"
+                    else:
+                        status = "⏹️ 已停止"
+
+                    # 播放模式
+                    mode_icon = "🔂" if get_repeat_mode(guild_id) else "🔁"
+                    mode_text = "單曲重複" if get_repeat_mode(guild_id) else "歌單循環"
+
+                    status_data['current_playing'] = {
+                        'title': current_song.get('title', '未知'),
+                        'requester': current_song.get('requester', '未知'),
+                        'mode': f"{mode_icon} {mode_text}",
+                        'volume': player.volume,
+                        'status': status
+                    }
+
+                # 佇列資訊
+                queue = get_queue(guild_id)
+                status_data['queue'] = [
+                    f"{song.get('title', '未知')} - {song.get('requester', '未知')}"
+                    for song in queue
+                ]
+
+            # 寫入 JSON 文件
+            with open('bot_status.json', 'w', encoding='utf-8') as f:
+                json.dump(status_data, f, ensure_ascii=False, indent=2)
+
+        except Exception as e:
+            logger.debug(f"狀態導出錯誤: {e}")
+
+        await asyncio.sleep(2)  # 每 2 秒更新一次
+
 @bot.event
 async def on_ready():
     logger.info(f'機器人已上線：{bot.user.name} (ID: {bot.user.id})')
@@ -441,6 +507,9 @@ async def on_ready():
         logger.error('下載地址: https://github.com/lavalink-devs/Lavalink/releases')
 
     print(f"Music Bot is online: {bot.user.name}")
+
+    # 啟動狀態導出任務（供 GUI 讀取）
+    bot.loop.create_task(export_status_loop())
 
 @bot.event
 async def on_wavelink_track_end(payload: wavelink.TrackEndEventPayload):

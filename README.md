@@ -4,6 +4,7 @@
 
 ## ✨ 主要功能
 
+### 音樂播放
 - 🎵 播放音樂（支援 SoundCloud、Bandcamp、Twitch、Vimeo 等）
 - ⚠️ YouTube 播放（目前受限於 YouTube 反爬蟲機制，建議使用其他音源）
 - 🔁 歌單循環模式
@@ -12,9 +13,12 @@
 - ⏭️ 跳過歌曲
 - 📜 播放佇列管理
 - 🎮 互動式控制面板
+
+### 系統功能
 - 📝 完整的日誌記錄
 - 🔄 自動錯誤重試
 - 🔒 環境變數安全管理
+- 🖥️ **實時 GUI 監控界面（新功能！）**
 
 ## 🚀 快速開始
 
@@ -71,6 +75,16 @@ java -jar Lavalink.jar
 ```bash
 python main_onlymusic.py
 ```
+
+7. **啟動 GUI 控制台**（可選，在另一個終端視窗）
+```bash
+# Windows
+start_dashboard.bat
+
+# Linux/macOS
+python dashboard.py
+```
+**詳細的 GUI 使用說明請參考 [GUI_GUIDE.md](GUI_GUIDE.md)**
 
 ## 📝 指令列表
 
@@ -154,10 +168,40 @@ cat logs/music_bot.log
 tail -f logs/music_bot.log  # 實時查看
 ```
 
+## 🖥️ GUI 監控界面
+
+本機器人提供了一個美觀的終端 GUI 控制台，用於實時監控機器人狀態！
+
+### 功能特性
+- ✅ 實時監控機器人在線狀態
+- 🎵 顯示當前播放歌曲和佇列
+- 📊 查看 Lavalink 連接狀態
+- 📝 實時日誌查看（顏色區分 INFO/WARNING/ERROR）
+- ⌨️ 快捷鍵控制（Q=退出, R=刷新, L=清除日誌, S=保存日誌）
+
+### 啟動 GUI
+```bash
+# Windows
+start_dashboard.bat
+
+# Linux/macOS
+python dashboard.py
+```
+
+### 完整使用指南
+詳細的 GUI 功能說明、界面佈局、快捷鍵列表和故障排除，請參考：
+📖 **[GUI_GUIDE.md](GUI_GUIDE.md)**
+
 ## ❓ 常見問題
 
 **Q: 機器人無法啟動**
 A: 確認 `.env` 文件中的 `DISCORD_BOT_TOKEN` 是否正確設定
+
+**Q: GUI 控制台啟動失敗**
+A: 確保已安裝 Textual 依賴：`pip install textual>=0.47.0`
+
+**Q: GUI 顯示「狀態資訊不更新」**
+A: 確認機器人正在運行，並檢查是否存在 `bot_status.json` 文件
 
 **Q: 顯示 "無法連接到 Lavalink 伺服器"**
 A:
